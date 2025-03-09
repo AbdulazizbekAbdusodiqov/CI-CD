@@ -1,0 +1,42 @@
+name: Deploy to Vps
+on:
+  push:
+    branches: 
+      - main
+jobs:
+  deploy:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Kodni yuklash
+        uses: actions/checkout@v4
+      - name: SSH kalitini sozlash
+        run: 
+          mkdir -p ~/.ssh
+          echo "${{secrets.SSH_PRIVATE_KEY}}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+        shell: bash
+      - name: Serverga deploy qilish
+        env:
+          HOST: ${{secrets.HOST}}
+          USER: ${{secrets.USERNAME}}
+          APP_DIR: /ci_cd
+          PORT: ${{secrets.PORT}}
+        run: |
+          ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
+          ssh $USER@HOST "
+            if [ ! -d $APP_DIR ]; then
+              mkdir -p $APP_DIR
+              git clone https://github.com/AbdulazizbekAbdusodiqov/CI-CD.git $APP_DIR
+              cd $APP_DIR
+              echo 'PORT=${PORT}' > .env
+            else
+              cd $APP_DIR
+              git pull origin main
+            fi 
+            npm install --force
+            npm run build
+            pm2 restart ci_cd_app || pm2 start dist/main.js --name ci_cd_app
+          "
+        shell: bash  
+
+            
